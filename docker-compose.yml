@@ -143,7 +143,13 @@ services:
       BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
     volumes:
       - ./scripts/backup.sh:/backup.sh:ro
-      - ./backups:/backups
+      # Must exist and belong to BACKUP_UID: a directory dockerd creates is
+      # root-owned, and every dump would fail.
+      - type: bind
+        source: ./backups
+        target: /backups
+        bind:
+          create_host_path: false
     networks:
       - backend
     security_opt:

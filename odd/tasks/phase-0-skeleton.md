@@ -24,7 +24,7 @@ Source: `docs/research/informe.md` phases table, row 0: "Monolito FastAPI + Post
 | T3 | S3 | inline (Risk item 2: access guard) | done (RED: build failed; GREEN: 6 route cases 200/403/403/401/401/404 + prod ignores dev header); verifier PASS (L8) | a0f1c55 |
 | T4 | S4 | inline | done (RED: build failed; GREEN: rollback leaves 0 jobs, commit leaves 1 and a worker on the app role works it inside the job tenant scope; app role cannot rewrite river_migration; smoke: worker boots as yupana_app with 0 errors); verifier PASS, review approved (L8) | cce3c44 |
 | T5 | S5, S6 | inline (Risk item 5) | done (no runnable RED: deploy config; checks: `compose config` ok, image 24.6 MB, full stack healthy, backups written, retention prunes only old `yupana-*.dump`, documented restore end to end keeps data and FORCE RLS) | 27043e3 |
-| T6 | S7 | inline (Risk item 5) | done (no runnable RED: CI config; local equivalents: gofmt, vet, `go test -race` in a Linux container against Postgres, `compose config`, actionlint 1.7.7 all ok; the first real run needs a remote) | see L10 |
+| T6 | S7 | inline (Risk item 5) | done (no runnable RED: CI config; local equivalents: gofmt, vet, `go test -race` in a Linux container against Postgres, `compose config`, actionlint 1.7.7 all ok; the first real run needs a remote) | becc105 |
 
 Route evidence: no Writer trigger (units depend on each other sequentially; no parallel disjoint units), so the parent writes inline.
 

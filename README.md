@@ -33,6 +33,7 @@ Create `.env` (gitignored) next to `docker-compose.yml`:
 Passwords go inside connection URLs, so use URL-safe values such as `openssl rand -hex 32`.
 
 ```sh
+mkdir -p backups   # owned by BACKUP_UID:BACKUP_GID; Compose refuses to start backup without it
 docker compose up -d --build
 docker compose ps
 ```
@@ -41,7 +42,7 @@ docker compose ps
 
 ## Backups and restore
 
-The `backup` service writes `./backups/yupana-<UTC timestamp>.dump` (`pg_dump` custom format) every `BACKUP_INTERVAL_SECONDS` and deletes dumps older than `BACKUP_KEEP_DAYS`. Copy `./backups` off the VPS; a backup on the same disk does not survive losing that disk.
+The `backup` service writes `./backups/yupana-<UTC timestamp>.dump` (`pg_dump` custom format) every `BACKUP_INTERVAL_SECONDS` and deletes dumps once they are more than `BACKUP_KEEP_DAYS` whole days old (`find -mtime`, so a dump lives up to one extra day). Copy `./backups` off the VPS; a backup on the same disk does not survive losing that disk.
 
 To restore a dump into an empty database:
 
@@ -52,7 +53,7 @@ docker compose exec -T postgres psql -U yupana_owner -d postgres -c "DROP DATABA
 docker compose exec -T postgres psql -U yupana_owner -d yupana -c "DO \$\$ BEGIN CREATE ROLE yupana_app LOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END \$\$"
 docker compose exec -T postgres pg_restore -U yupana_owner -d yupana --exit-on-error < backups/yupana-<timestamp>.dump
 docker compose run --rm migrate   # sets the app role password; already-applied migrations are skipped
-docker compose start api worker bot
+docker compose up -d
 ```
 
 ## Develop
