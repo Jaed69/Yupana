@@ -28,20 +28,18 @@ func TestLoad(t *testing.T) {
 		{
 			name: "explicit values override defaults",
 			env: map[string]string{
-				"YUPANA_ENV":                  "dev",
-				"YUPANA_HTTP_ADDR":            ":9000",
-				"YUPANA_DATABASE_URL":         "postgres://app@db/yupana",
-				"YUPANA_MIGRATE_DATABASE_URL": "postgres://owner@db/yupana",
-				"YUPANA_LOG_LEVEL":            "debug",
-				"YUPANA_TELEGRAM_TOKEN":       "123:abc",
+				"YUPANA_ENV":            "dev",
+				"YUPANA_HTTP_ADDR":      ":9000",
+				"YUPANA_DATABASE_URL":   "postgres://app@db/yupana",
+				"YUPANA_LOG_LEVEL":      "debug",
+				"YUPANA_TELEGRAM_TOKEN": "123:abc",
 			},
 			want: config.Config{
-				Env:                "dev",
-				HTTPAddr:           ":9000",
-				DatabaseURL:        "postgres://app@db/yupana",
-				MigrateDatabaseURL: "postgres://owner@db/yupana",
-				LogLevel:           slog.LevelDebug,
-				TelegramToken:      "123:abc",
+				Env:           "dev",
+				HTTPAddr:      ":9000",
+				DatabaseURL:   "postgres://app@db/yupana",
+				LogLevel:      slog.LevelDebug,
+				TelegramToken: "123:abc",
 			},
 		},
 		{
@@ -81,12 +79,11 @@ func TestLoad(t *testing.T) {
 
 func TestConfigStringRedactsSecrets(t *testing.T) {
 	c := config.Config{
-		DatabaseURL:        "postgres://app:s3cret@db/yupana",
-		MigrateDatabaseURL: "postgres://owner:0wner@db/yupana",
-		TelegramToken:      "123:tok3n",
+		DatabaseURL:   "postgres://app:s3cret@db/yupana",
+		TelegramToken: "123:tok3n",
 	}
 	s := c.String()
-	for _, secret := range []string{"s3cret", "0wner", "tok3n"} {
+	for _, secret := range []string{"s3cret", "tok3n"} {
 		if strings.Contains(s, secret) {
 			t.Fatalf("String() leaks %q: %s", secret, s)
 		}
