@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/riverqueue/river"
 
 	"github.com/Jaed69/yupana/internal/platform/db"
@@ -122,7 +123,8 @@ func TestJobsAreEnqueuedOnlyWhenTheBusinessTransactionCommits(t *testing.T) {
 func TestAppRoleCannotRewriteQueueMigrations(t *testing.T) {
 	d := testdb.New(t)
 	_, err := d.App.Exec(context.Background(), `DELETE FROM river.river_migration`)
-	if err == nil {
-		t.Fatal("app role deleted river migrations, want permission denied")
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "42501" {
+		t.Fatalf("err = %v, want permission denied (42501)", err)
 	}
 }
