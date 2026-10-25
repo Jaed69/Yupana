@@ -24,7 +24,7 @@ func TestRunRejectsUnknownCommands(t *testing.T) {
 			if code != 2 {
 				t.Fatalf("exit code = %d, want 2", code)
 			}
-			if !strings.Contains(stderr.String(), "usage: yupana <api|worker|bot|healthcheck>") {
+			if !strings.Contains(stderr.String(), "usage: yupana <api|worker|bot|migrate|healthcheck>") {
 				t.Fatalf("stderr = %q, want usage line", stderr.String())
 			}
 		})
@@ -67,5 +67,18 @@ func TestHealthcheck(t *testing.T) {
 				t.Fatalf("exit code = %d, want %d (stderr %q)", code, tt.want, stderr.String())
 			}
 		})
+	}
+}
+
+func TestMigrateRequiresOwnerURLAndAppPassword(t *testing.T) {
+	var stderr bytes.Buffer
+	code := run(context.Background(), []string{"yupana", "migrate"}, func(string) string { return "" }, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	for _, want := range []string{"YUPANA_MIGRATE_DATABASE_URL is required", "YUPANA_APP_DB_PASSWORD is required"} {
+		if !strings.Contains(stderr.String(), want) {
+			t.Errorf("stderr = %q, want it to contain %q", stderr.String(), want)
+		}
 	}
 }

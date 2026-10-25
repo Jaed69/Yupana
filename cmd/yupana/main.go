@@ -17,9 +17,10 @@ import (
 	"github.com/Jaed69/yupana/internal/app/bot"
 	"github.com/Jaed69/yupana/internal/app/worker"
 	"github.com/Jaed69/yupana/internal/platform/config"
+	"github.com/Jaed69/yupana/internal/platform/migrate"
 )
 
-const usage = "usage: yupana <api|worker|bot|healthcheck>"
+const usage = "usage: yupana <api|worker|bot|migrate|healthcheck>"
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -41,6 +42,9 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 			return 2
 		}
 		return healthcheck(ctx, args[2], stderr)
+	}
+	if cmd == "migrate" {
+		return runMigrate(ctx, getenv, stderr)
 	}
 
 	var start func(context.Context, config.Config, *slog.Logger) error
@@ -68,6 +72,32 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		return 1
 	}
 	logger.Info("stopped")
+	return 0
+}
+
+// runMigrate is the only path that uses the owner credentials; the long-running
+// processes never see them.
+func runMigrate(ctx context.Context, getenv func(string) string, stderr io.Writer) int {
+	ownerURL, appPassword := getenv("YUPANA_MIGRATE_DATABASE_URL"), getenv("YUPANA_APP_DB_PASSWORD")
+	missing := false
+	for _, v := range []struct{ name, value string }{
+		{"YUPANA_MIGRATE_DATABASE_URL", ownerURL},
+		{"YUPANA_APP_DB_PASSWORD", appPassword},
+	} {
+		if v.value == "" {
+			fmt.Fprintln(stderr, v.name, "is required")
+			missing = true
+		}
+	}
+	if missing {
+		return 1
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With("process", "migrate")
+	if err := migrate.Up(ctx, ownerURL, appPassword, logger); err != nil {
+		logger.Error("migration failed", "err", err)
+		return 1
+	}
+	logger.Info("migrations up to date")
 	return 0
 }
 

@@ -19,8 +19,8 @@ Source: `docs/research/informe.md` phases table, row 0: "Monolito FastAPI + Post
 
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
-| T1 | S1 | inline | done (RED: build failed; GREEN: go test ./... ok, binary smoke healthcheck exit 0) | see L3 |
-| T2 | S2 | inline (Risk item 2: own commit + verifier) | pending | |
+| T1 | S1 | inline | done (RED: build failed; GREEN: go test ./... ok, binary smoke healthcheck exit 0) | 1419d51 |
+| T2 | S2 | inline (Risk item 2: own commit + verifier) | done (RED: build failed; GREEN: 7 RLS integration tests ok; mutation `WITH CHECK (true)` and dropped FORCE both caught) | see L4 |
 | T3 | S3 | inline | pending | |
 | T4 | S4 | inline | pending | |
 | T5 | S5, S6 | inline | pending | |
@@ -32,3 +32,5 @@ Route evidence: no Writer trigger (units depend on each other sequentially; no p
 
 - **L1 (2026-10-25, user):** "S i dale" — answer to "¿Arrancamos con la Fase 0?".
 - L2: research docs committed first as `c8518fb` on the feature branch.
+- L3: T1 committed `1419d51`; assess medium, `under_budget` (slice closed before the high-risk T2).
+- L4: T2. Finding: a `FOR ALL` policy without `WITH CHECK` reuses `USING` for writes, so removing it is not a weakening; the meaningful mutation is `WITH CHECK (true)`, which the write tests catch. Owner credentials stay out of `config.Config`; only `yupana migrate` reads `YUPANA_MIGRATE_DATABASE_URL` and sets the `yupana_app` password from `YUPANA_APP_DB_PASSWORD`.
