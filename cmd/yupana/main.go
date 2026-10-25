@@ -66,6 +66,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stderr 
 		return 1
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel})).With("process", cmd)
+	slog.SetDefault(logger)
 	logger.Info("starting", "config", cfg.String())
 	if err := start(ctx, cfg, logger); err != nil {
 		logger.Error("stopped with error", "err", err)
