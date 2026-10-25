@@ -1,0 +1,12 @@
+[project]
+name = "py"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "numpy>=2.5.4",
+    "opencv-contrib-python-headless>=5.0.0.93",
+    "pillow>=13.0.0",
+    "pyzbar>=0.1.9",
+    "qrcode>=8.2",
+    "zxing-cpp>=3.1.1",
+]
