@@ -1,0 +1,59 @@
+# Checks every push and pull request on native arm64, the VPS architecture.
+# Image push, scanning and deploy are added once the repository has a remote registry.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg18-trixie
+        env:
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Formatting
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        env:
+          YUPANA_TEST_DATABASE_URL: postgres://postgres:test@localhost:5432/postgres
+        run: go test -race -count=1 ./...
+
+      - name: Compose file
+        env:
+          YUPANA_OWNER_DB_PASSWORD: ci
+          YUPANA_APP_DB_PASSWORD: ci
+          YUPANA_API_HOST: ci.invalid
+        run: docker compose config -q
+
+      - name: Image
+        run: docker build -t yupana:ci .
