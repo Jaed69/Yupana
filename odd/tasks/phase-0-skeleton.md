@@ -20,9 +20,9 @@ Source: `docs/research/informe.md` phases table, row 0: "Monolito FastAPI + Post
 | ID | Specs | Route | Status | Commit |
 |---|---|---|---|---|
 | T1 | S1 | inline | done (RED: build failed; GREEN: go test ./... ok, binary smoke healthcheck exit 0) | 1419d51 |
-| T2 | S2 | inline (Risk item 2: own commit + verifier) | done (RED: build failed; GREEN: 7 RLS integration tests ok; mutation `WITH CHECK (true)` and dropped FORCE both caught); verifier pending | d277695 |
-| T3 | S3 | inline (Risk item 2: access guard) | done (RED: build failed; GREEN: 6 route cases 200/403/403/401/401/404 + prod ignores dev header); verifier pending | see L5 |
-| T4 | S4 | inline | pending | |
+| T2 | S2 | inline (Risk item 2: own commit + verifier) | done (RED: build failed; GREEN: 7 RLS integration tests ok; mutation `WITH CHECK (true)` and dropped FORCE both caught); verifier PASS, no blockers (L6) | d277695 |
+| T3 | S3 | inline (Risk item 2: access guard) | done (RED: build failed; GREEN: 6 route cases 200/403/403/401/401/404 + prod ignores dev header); verifier pending | a0f1c55 |
+| T4 | S4 | inline | done (RED: build failed; GREEN: rollback leaves 0 jobs, commit leaves 1 and a worker on the app role works it inside the job tenant scope; app role cannot rewrite river_migration; smoke: worker boots as yupana_app with 0 errors) | see L7 |
 | T5 | S5, S6 | inline | pending | |
 | T6 | S7 | inline (Risk item 5) | pending | |
 
@@ -35,3 +35,5 @@ Route evidence: no Writer trigger (units depend on each other sequentially; no p
 - L3: T1 committed `1419d51`; assess medium, `under_budget` (slice closed before the high-risk T2).
 - L4: T2. Finding: a `FOR ALL` policy without `WITH CHECK` reuses `USING` for writes, so removing it is not a weakening; the meaningful mutation is `WITH CHECK (true)`, which the write tests catch. Owner credentials stay out of `config.Config`; only `yupana migrate` reads `YUPANA_MIGRATE_DATABASE_URL` and sets the `yupana_app` password from `YUPANA_APP_DB_PASSWORD`.
 - L5: T3. S3 path refined to `internal/modules/<module>` with Go `internal/` for module internals (agent-authored spec, not a user string). Tenant resolution: no auth exists yet, so prod uses `DenyResolver` (every module route 401) and only `YUPANA_ENV=dev` trusts the `X-Yupana-Tenant` header. Real resolution (bot chat -> tenant, API auth) is a later phase.
+- L6: T2 independent verifier: S2 PASS on every clause, no blockers. Probes held: no-tenant writes, `SET ROLE`, `row_security=off`, malformed tenant, policy tampering, object creation, quoted password injection, repeated migrate. Advisories carried forward: (1) with FORCE RLS a non-superuser owner cannot provision tenants, so provisioning needs a superuser/BYPASSRLS role or a SECURITY DEFINER function (decide in T5); (2) in PG16+ a CREATEROLE owner that did not create `yupana_app` cannot set its password; (3) revoke PUBLIC EXECUTE on `platform.enable_tenant_rls`; (4) app role keeps TEMP; (5) only `WithTenant` may set the tenant (session-level `set_config` would leak across the pool); (6) Down does not drop the cluster-wide role (intentional).
+- L7: T4. River tables live in schema `river`, migrated by `yupana migrate` as the owner; the app role gets job DML but only SELECT on `river_migration`. The River reindexer is disabled because REINDEX needs table ownership. Phase 0 registers one `platform.ping` worker because River refuses to start without workers; modules add real jobs later.

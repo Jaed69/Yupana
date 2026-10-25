@@ -11,8 +11,13 @@ import (
 	"log/slog"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib" // registers the "pgx" database/sql driver
 	"github.com/pressly/goose/v3"
+	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivermigrate"
+
+	"github.com/Jaed69/yupana/internal/platform/queue"
 )
 
 //go:embed sql/*.sql
@@ -58,6 +63,42 @@ func Up(ctx context.Context, ownerURL, appPassword string, logger *slog.Logger) 
 	}
 	if _, err := conn.ExecContext(ctx, stmt); err != nil {
 		return fmt.Errorf("set %s password: %w", pgx.Identifier{AppRole}.Sanitize(), err)
+	}
+	return upQueue(ctx, ownerURL, logger)
+}
+
+// upQueue applies River's own migrations in queue.Schema and grants the app
+// role what a River client needs: job DML, but read-only migration history.
+func upQueue(ctx context.Context, ownerURL string, logger *slog.Logger) error {
+	pool, err := pgxpool.New(ctx, ownerURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	if _, err := pool.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS `+queue.Schema); err != nil {
+		return err
+	}
+	migrator, err := rivermigrate.New(riverpgxv5.New(pool), &rivermigrate.Config{Schema: queue.Schema, Logger: logger})
+	if err != nil {
+		return err
+	}
+	res, err := migrator.Migrate(ctx, rivermigrate.DirectionUp, nil)
+	if err != nil {
+		return fmt.Errorf("apply queue migrations: %w", err)
+	}
+	for _, v := range res.Versions {
+		logger.Info("queue migration applied", "version", v.Version, "duration", v.Duration)
+	}
+
+	role := pgx.Identifier{AppRole}.Sanitize()
+	_, err = pool.Exec(ctx, fmt.Sprintf(`
+		GRANT USAGE ON SCHEMA %[1]s TO %[2]s;
+		GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA %[1]s TO %[2]s;
+		REVOKE INSERT, UPDATE, DELETE ON %[1]s.river_migration FROM %[2]s;
+		GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA %[1]s TO %[2]s;`, queue.Schema, role))
+	if err != nil {
+		return fmt.Errorf("grant queue access: %w", err)
 	}
 	return nil
 }
